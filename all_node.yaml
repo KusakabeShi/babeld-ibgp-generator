@@ -1,0 +1,43 @@
+port_base: 18000
+MTU: 1360
+output_dir: output
+default_tunnel: wg
+iface_prefix: ibgp-
+network:
+  v4: 172.22.77.32/28
+  v6: fd28:cb8f:4c92::/48
+  v6ll: "fd80::1817:0"
+node_list:
+  1:
+    name: tw
+    endpoints:
+      '-4': 4.tw.kskb.eu.org
+      '-6': 6.tw.kskb.eu.org
+  4:
+    name: jptyo
+    endpoints:
+      '-4': 4.jp.kskb.eu.org
+      '-6': 6.jp.kskb.eu.org
+  8:
+    name: usfmt
+    endpoints:
+      '-4': 4.us.kskb.eu.org
+      '-6': 6.us.kskb.eu.org
+  9:
+    name: noyes
+    endpoints:
+      '-6': 6.noyes.kskb.eu.org
+  10:
+    name: de
+    endpoints:
+      '-4': NAT
+      '-6': NAT
+  custom_tunnel:
+      10: null
+  12:
+    name: nj
+    port_base: 42150
+    endpoints:
+      '-4': 4.cnnj.kskb.eu.org
+    custom_tunnel:
+      10: null
