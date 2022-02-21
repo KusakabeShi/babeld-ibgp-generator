@@ -164,9 +164,9 @@ def get_v6ll(id,ip):
 
 tunnels = {
     None: None,
+    "gre": get_gre,
     "wg":get_wg,
     "openvpn": get_openvpn,
-    "gre": get_gre
 }
 
 tunnelist = list(tunnels.keys())

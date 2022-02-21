@@ -1,7 +1,10 @@
-port_base: 18000
-MTU: 1360
 output_dir: output
-default_tunnel: wg
+defaults:
+  port_base: 18000
+  server_perf: 100
+  MTU: 1360
+  tunnel: 
+    -1: wg
 iface_prefix: ibgp-
 network:
   v4: 172.22.77.32/28
@@ -10,9 +13,12 @@ network:
 node_list:
   1:
     name: tw
+    server_perf: 50
     endpoints:
       '-4': 4.tw.kskb.eu.org
       '-6': 6.tw.kskb.eu.org
+    tunnel:
+      8: openvpn
   4:
     name: jptyo
     endpoints:
@@ -23,6 +29,8 @@ node_list:
     endpoints:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
+    tunnel:
+      1: openvpn
   9:
     name: noyes
     endpoints:
@@ -32,12 +40,12 @@ node_list:
     endpoints:
       '-4': NAT
       '-6': NAT
-  custom_tunnel:
-      10: null
+    tunnel:
+      12: null
   12:
     name: nj
     port_base: 42150
     endpoints:
       '-4': 4.cnnj.kskb.eu.org
-    custom_tunnel:
+    tunnel:
       10: null
