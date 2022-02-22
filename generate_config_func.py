@@ -9,6 +9,7 @@ from jinja2 import Template, DebugUndefined
 psk_db = {}
 keypair_db = {}
 port_allocate_db = {}
+port_allocate_db_i = {}
 
 def vars_load(var):
     if "psk_db" in var:
@@ -17,12 +18,15 @@ def vars_load(var):
         keypair_db = var["keypair_db"]
     if "port_allocate_db" in var:
         port_allocate_db = var["port_allocate_db"]
+    if "port_allocate_db_i" in var:
+        port_allocate_db_i = var["port_allocate_db_i"]
         
 def vars_dump():
     return {
         "psk_db": psk_db,
         "keypair_db": keypair_db,
-        "port_allocate_db": port_allocate_db
+        "port_allocate_db": port_allocate_db,
+        "port_allocate_db_i": port_allocate_db_i,
     }
 
 def keygen():
@@ -46,14 +50,32 @@ def get_keypair(id):
     keypair_db[id] = keygen()
     return keypair_db[id]
 
+def allocate_port(id,id2,port_db,port_base):
+    if id not in port_db:
+        port_db[id] = { id2: port_base }
+        return port_db[id][id2]
+    elif id2 not in port_db[id]:
+        for p in range(port_base, 65535):
+            pfound = False
+            for _,usedp in port_db[id].items():
+                if p == usedp:
+                    pfound = True
+                    break
+            if pfound == False:
+                port_db[id][id2] = p 
+                return port_db[id][id2]
+    return port_db[id][id2]
+
 def get_wg(server,client):
     conftemplate = Template(open('wg/wg.conf').read(), undefined=DebugUndefined)
     setuptemplate = Template(open('wg/wg.sh').read(), undefined=DebugUndefined)
     def renderconf(server,client):
         spri,spub = get_keypair(server["id"])
         cpri,cpub = get_keypair(client["id"])
-        server["port"] = allocate_port(server["name"],client["ifname"],server["port_base"])
-        client["port"] = allocate_port(client["name"],server["ifname"],client["port_base"])
+        if "port" not in server:
+            server["port"] = allocate_port(server["name"],client["ifname"],port_allocate_db,server["port_base"]) if server["endpoint"] != "NAT" else 0
+        if "port" not in client:
+            client["port"] = allocate_port(client["name"],server["ifname"],port_allocate_db,client["port_base"]) if client["endpoint"] != "NAT" else 0
         render_params = {
             'wg': {
                 'pri': spri, 
@@ -69,38 +91,63 @@ def get_wg(server,client):
             "ifname" : param["ifname"]
         }
         return setuptemplate.render(**render_params)
-    n0 = {
+    conf_s = {
         "up": rendersetup(client),
         "down": "ip link del " + client["ifname"],
         "confs": {".conf": renderconf(server,client) }
     }
-    n1 = {
+    conf_c = {
         "up": rendersetup(server),
         "down": "ip link del " + server["ifname"],
         "confs": {".conf": renderconf(client,server) }
     }
-    return n0 , n1
-    
+    return conf_s , conf_c
+
+def get_wg_udp2raw(server,client):
+    #print(server,client)
+    #return
+    server["port"]    = allocate_port(server["name"],client["ifname"],port_allocate_db  ,server["port_base"])
+    server["port_wg_local"] = allocate_port(server["name"],client["ifname"],port_allocate_db_i,server["port_base_i"])
+    client["port_udp2raw_local"] = allocate_port(client["name"],server["ifname"],port_allocate_db_i,client["port_base_i"])
+    server_w = {**server}
+    client_w = {**client}
+    server_w["endpoint"] = "127.0.0.42"
+    server_w["port"] = server["port_wg_local"]
+    client_w["endpoint"] = "NAT"
+    wg_s, _ = get_wg(server_w,client_w)
+    server_w["port"] = client["port_udp2raw_local"]
+    _ , wg_c = get_wg(server_w,client_w)
+    conf_s, conf_c = wg_s, wg_c
+    conf_s["up"] += "\n" + f'udp2raw -s -l 0.0.0.0:{server["port"]} -r 127.0.0.42:{server["port_wg_local"]}  -a -k "{get_psk(server["id"],client["id"])[:10]}" --raw-mode faketcp &'
+    conf_s["up"] += '\necho $! > {{ confpath }}.pid'
+    conf_c["up"] += "\n" + f'udp2raw -c -r {server["endpoint"]}":{server["port"]} -l 127.0.0.42:{client["port_udp2raw_local"]}  -k "{get_psk(server["id"],client["id"])[:10]}" --raw-mode faketcp -a &'
+    conf_c["up"] += '\necho $! > {{ confpath }}.pid'
+    conf_s["down"] += '\nkill $(cat {{ confpath }}.pid)'
+    conf_c["down"] += '\nkill $(cat {{ confpath }}.pid)'
+    return conf_s,conf_c
+
 def get_gre(server,client):
-    n0 = {
+    conf_s = {
         "up": f'ip tunnel add {client["ifname"]} mode gre remote { client["endpoint"] } ttl 255',
         "down": "ip link del " + client["ifname"],
+        "confs": {}
     }
-    n1 = {
+    conf_c = {
         "up": f'ip tunnel add {server["ifname"]} mode gre remote { server["endpoint"] } ttl 255',
         "down": "ip link del " + server["ifname"],
+        "confs": {}
     }
     if server["endpoint"] == "NAT":
         raise ValueError(f'Endpoint can\'t be NAT at gre tunnel: { client["id"] } ->  { server["id"] }' )
     if client["endpoint"] == "NAT":
         raise ValueError(f'Endpoint can\'t be NAT at gre tunnel: { server["id"] } ->  { client["id"] }' )
-    return n0 , n1
+    return conf_s , conf_c
 
 def get_openvpn(server,client):
-    server["port"] = allocate_port(server["name"],client["ifname"],server["port_base"])
+    server["port"] = allocate_port(server["name"],client["ifname"],port_allocate_db,server["port_base"])
     ovpncfg = get_openvpn_config(server["id"],client["id"])
-    n0 = {
-        "up": 'openvpn --config {{ confpath }}.ovpn &',
+    conf_s = {
+        "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
         "down": 'kill $(cat {{ confpath }}.pid)',
         "confs": { ".ovpn" : Template(open('ovpn/server.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
                   "ca.crt": ovpncfg["ca.crt"],
@@ -109,8 +156,8 @@ def get_openvpn(server,client):
                   ".pem": ovpncfg["df.pem"]
                  }
     }
-    n1 = {
-        "up": 'openvpn --config {{ confpath }}.ovpn &',
+    conf_c = {
+        "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
         "down": 'kill $(cat {{ confpath }}.pid)',
         "confs": { ".ovpn" : Template(open('ovpn/client.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
                   "ca.crt": ovpncfg["ca.crt"],
@@ -118,7 +165,7 @@ def get_openvpn(server,client):
                   ".key": ovpncfg["client.key"],
                  }
     }
-    return n0 , n1
+    return conf_s , conf_c
     
 def get_openvpn_config(id,id2):
     return {
@@ -130,21 +177,7 @@ def get_openvpn_config(id,id2):
         "df.pem": ""
     }
     
-def allocate_port(id,id2,port_base):
-    if id not in port_allocate_db:
-        port_allocate_db[id] = { id2: port_base }
-        return port_allocate_db[id][id2]
-    elif id2 not in port_allocate_db[id]:
-        for p in range(port_base, 65535):
-            pfound = False
-            for _,usedp in port_allocate_db[id].items():
-                if p == usedp:
-                    pfound = True
-                    break
-            if pfound == False:
-                port_allocate_db[id][id2] = p 
-                return port_allocate_db[id][id2]
-    return port_allocate_db[id][id2]
+
 def get_v4(id,net):
     first = net[0]
     ip = first + id
@@ -165,8 +198,10 @@ def get_v6ll(id,ip):
 tunnels = {
     None: None,
     "gre": get_gre,
+    "wg_udp2raw":get_wg_udp2raw,
     "wg":get_wg,
     "openvpn": get_openvpn,
+    
 }
 
 tunnelist = list(tunnels.keys())

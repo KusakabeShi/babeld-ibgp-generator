@@ -1,7 +1,8 @@
 import jinja2
 import yaml
 import os
-from generate_config_func import *
+import shutil
+
 
 import ruamel.yaml
 from ruamel.yaml.constructor import SafeConstructor
@@ -14,6 +15,17 @@ PrettySafeLoader.add_constructor(
     u'tag:yaml.org,2002:python/tuple',
     PrettySafeLoader.construct_python_tuple)
 yaml.Dumper.ignore_aliases = lambda *args : True
+
+if not os.path.isfile("input/all_node.yaml"):
+    print("WARN: input/all_node.yaml not found, using default template")
+    shutil.copyfile("all_node.yaml", "input/all_node.yaml", follow_symlinks=True)
+    
+if not os.path.isfile("input/generate_config_func.py"):
+    print("WARN: input/generate_config_func.py not found, using default template")
+    shutil.copyfile("generate_config_func.py", "input/generate_config_func.py", follow_symlinks=True)
+
+from input.generate_config_func import *
+    
 gen_conf = ruamel.yaml.safe_load(open("input/all_node.yaml").read())
 
 if os.path.isfile("input/state.yaml"):
@@ -41,8 +53,8 @@ def get_iface_full(name,af):
 
 def get_tun(node, id2):
     if id2 not in node["tunnel"]:
-        return node["tunnel"][-1]
-    return node["tunnel"][id2]
+        return node["tunnel"][-1] , 1
+    return node["tunnel"][id2] , 0
 
 for id, node in gen_conf["node_list"].items():
     os.makedirs(gen_conf["output_dir"] + "/" + node["name"], exist_ok=True)
@@ -61,9 +73,9 @@ for id, node in gen_conf["node_list"].items():
                 continue
             if node["endpoints"][af] == "NAT" and node2["endpoints"][af] == "NAT": # skip if both side are NATed
                 continue
-            tuntype1 = get_tun(node,id2)
-            tuntype2 = get_tun(node2,id)
-            if tunnelist.index(tuntype1) > tunnelist.index(tuntype2):
+            tuntype1, wildcard1 = get_tun(node,id2)
+            tuntype2, wildcard2 = get_tun(node2,id)
+            if (wildcard1,tunnelist.index(tuntype1)) > (wildcard2,tunnelist.index(tuntype2)):
                 tuntype = tuntype2
             else:
                 tuntype = tuntype1
@@ -72,19 +84,17 @@ for id, node in gen_conf["node_list"].items():
             if tuntype == None:
                 continue
             side_a = {
+                **node,
                 "id": id,
-                "name": node["name"],
                 "ifname": get_iface_full(node["name"],af),
                 "endpoint": node["endpoints"][af],
-                "port_base": node["port_base"],
                 "params": node["param"][tuntype] if tuntype in node["param"] else None
             }
             side_b = {
+                **node2,
                 "id": id2,
-                "name": node2["name"],
                 "ifname": get_iface_full(node2["name"],af),
                 "endpoint": node2["endpoints"][af],
-                "port_base": node2["port_base"],
                 "params": node2["param"][tuntype] if tuntype in node2["param"] else None
             }
             
@@ -92,7 +102,7 @@ for id, node in gen_conf["node_list"].items():
             if side_a["endpoint"] == "NAT":
                 continue
             try:
-                if (node["server_perf"],id) >= (node2["server_perf"],id2):
+                if side_b["endpoint"] == "NAT" or (node["server_perf"],id) >= (node2["server_perf"],id2):
                     aconf, bconf = tunnels[tuntype](side_a,side_b)
                 else:
                     bconf, aconf = tunnels[tuntype](side_b,side_a)

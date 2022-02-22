@@ -1,6 +1,7 @@
 output_dir: output
 defaults:
   port_base: 18000
+  port_base_i: 36000
   server_perf: 100
   MTU: 1360
   tunnel: 
@@ -24,6 +25,8 @@ node_list:
     endpoints:
       '-4': 4.jp.kskb.eu.org
       '-6': 6.jp.kskb.eu.org
+    tunnel:
+      8: gre
   8:
     name: usfmt
     endpoints:
@@ -31,6 +34,7 @@ node_list:
       '-6': 6.us.kskb.eu.org
     tunnel:
       1: openvpn
+      4: gre
   9:
     name: noyes
     endpoints:
@@ -48,4 +52,5 @@ node_list:
     endpoints:
       '-4': 4.cnnj.kskb.eu.org
     tunnel:
+      -1: wg_udp2raw
       10: null
