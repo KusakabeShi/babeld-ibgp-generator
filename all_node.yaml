@@ -10,7 +10,7 @@ iface_prefix: ibgp-
 network:
   v4: 172.22.77.32/28
   v6: fd28:cb8f:4c92::/48
-  v6ll: "fd80::1817:0"
+  v6ll: "fe80::1817:0"
 node_list:
   1:
     name: tw
@@ -23,11 +23,15 @@ node_list:
     endpoints:
       '-4': 4.jp.kskb.eu.org
       '-6': 6.jp.kskb.eu.org
+    tunnel:
+      12: openvpn
   8:
     name: usfmt
     endpoints:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
+    tunnel:
+      8: openvpn
   10:
     name: de
     endpoints:
