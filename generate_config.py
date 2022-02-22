@@ -3,9 +3,10 @@ import yaml
 import os
 import shutil
 
-
 import ruamel.yaml
 from ruamel.yaml.constructor import SafeConstructor
+
+os.umask(0o022)
 
 class PrettySafeLoader(yaml.SafeLoader):
     def construct_python_tuple(self, node):
