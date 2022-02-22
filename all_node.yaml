@@ -18,8 +18,6 @@ node_list:
     endpoints:
       '-4': 4.tw.kskb.eu.org
       '-6': 6.tw.kskb.eu.org
-    tunnel:
-      8: openvpn
   4:
     name: jptyo
     endpoints:
@@ -33,12 +31,7 @@ node_list:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
     tunnel:
-      1: openvpn
       4: gre
-  9:
-    name: noyes
-    endpoints:
-      '-6': 6.noyes.kskb.eu.org
   10:
     name: de
     endpoints:
