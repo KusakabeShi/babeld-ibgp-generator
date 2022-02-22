@@ -23,15 +23,11 @@ node_list:
     endpoints:
       '-4': 4.jp.kskb.eu.org
       '-6': 6.jp.kskb.eu.org
-    tunnel:
-      8: gre
   8:
     name: usfmt
     endpoints:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
-    tunnel:
-      4: gre
   10:
     name: de
     endpoints:
@@ -44,7 +40,7 @@ node_list:
     port_base: 42150
     server_perf: 150
     endpoints:
-      '-4': 4.cnnj.kskb.eu.org
+      '-4': "221.181.185.70"
     tunnel:
       -1: wg_udp2raw
       10: null
