@@ -59,7 +59,7 @@ get_gre / get_wg_udp2raw / get_wg / get_openvpn 四個function會回傳具體的
 ![image](https://user-images.githubusercontent.com/73118488/155205044-0f306f62-2960-4d6a-9c6c-eb2d41c52d94.png)
 
 返回值是 server 和 client 的設定檔，有 `confs` `up` `down`三個部分  
-![image](https://user-images.githubusercontent.com/73118488/155205830-00a1d46d-a867-4175-9fa2-b24081d14049.png)
+![image](https://user-images.githubusercontent.com/73118488/155206208-ddf722ba-a0c0-4ad2-b426-92b1adf21bf1.png)
 
 可以去 `test_func.ipynb` 測試
 
