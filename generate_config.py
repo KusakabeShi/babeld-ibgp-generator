@@ -143,7 +143,9 @@ for s,sps in result.items():
     babeldconf = babeldtemplate.render(**render_params)
     open(gen_conf["output_dir"] + "/" + s + "/babeld.conf" , "w").write(babeldconf)
     open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w").write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].keys())))
+    os.chmod(gen_conf["output_dir"] + "/" + s + "/up.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].keys())))
+    os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write(sps["bird/ibgp.conf"])
     
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))
