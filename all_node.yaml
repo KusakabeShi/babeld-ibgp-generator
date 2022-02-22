@@ -3,7 +3,7 @@ defaults:
   port_base: 18000
   port_base_i: 36000
   server_perf: 100
-  MTU: 1360
+  MTU: 1280
   tunnel: 
     -1: wg
 iface_prefix: ibgp-
@@ -49,6 +49,7 @@ node_list:
   12:
     name: nj
     port_base: 42150
+    server_perf: 150
     endpoints:
       '-4': 4.cnnj.kskb.eu.org
     tunnel:
