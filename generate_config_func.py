@@ -125,7 +125,7 @@ def get_wg_udp2raw(server,client):
     conf_s, conf_c = wg_s, wg_c
     conf_s["up"] += "\n" + f'udp2raw -s -l 0.0.0.0:{server["port"]} -r 127.0.0.1:{server["port_wg_local"]}  -a -k "{get_psk(server["id"],client["id"])[:10]}" --raw-mode faketcp &'
     conf_s["up"] += '\necho $! > {{ confpath }}.pid'
-    conf_c["up"] += "\n" + f'udp2raw -c -r {server["endpoint"]}:{server["port"]} -l 127.0.0.1:{client["port_udp2raw_local"]}  -k "{get_psk(server["id"],client["id"])[:10]}" --raw-mode faketcp -a &'
+    conf_c["up"] += "\n" + f'udp2raw -c -r {server["endpoint_ip"]}:{server["port"]} -l 127.0.0.1:{client["port_udp2raw_local"]}  -k "{get_psk(server["id"],client["id"])[:10]}" --raw-mode faketcp -a &'
     conf_c["up"] += '\necho $! > {{ confpath }}.pid'
     conf_s["down"] += '\nkill $(cat {{ confpath }}.pid)'
     conf_c["down"] += '\nkill $(cat {{ confpath }}.pid)'
@@ -133,12 +133,12 @@ def get_wg_udp2raw(server,client):
 
 def get_gre(server,client):
     conf_s = {
-        "up": f'ip tunnel add {client["ifname"]} mode gre remote { client["endpoint"] } ttl 255',
+        "up": f'ip tunnel add {client["ifname"]} mode gre remote { client["endpoint_ip"] } ttl 255',
         "down": "ip link del " + client["ifname"],
         "confs": {}
     }
     conf_c = {
-        "up": f'ip tunnel add {server["ifname"]} mode gre remote { server["endpoint"] } ttl 255',
+        "up": f'ip tunnel add {server["ifname"]} mode gre remote { server["endpoint_ip"] } ttl 255',
         "down": "ip link del " + server["ifname"],
         "confs": {}
     }

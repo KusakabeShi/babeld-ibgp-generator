@@ -2,6 +2,7 @@ import jinja2
 import yaml
 import os
 import shutil
+import string
 
 import ruamel.yaml
 from ruamel.yaml.constructor import SafeConstructor
@@ -57,6 +58,10 @@ def get_tun(node, id2):
         return node["tunnel"][-1] , 1
     return node["tunnel"][id2] , 0
 
+def get_bash_var_name(strin):
+    allowed = set( string.ascii_letters + string.digits + "_" )
+    return "".join(map(lambda x: x if x in allowed else "_" , strin))
+
 for id, node in gen_conf["node_list"].items():
     os.makedirs(gen_conf["output_dir"] + "/" + node["name"], exist_ok=True)
     os.makedirs(gen_conf["output_dir"] + "/" + node["name"] + "/igp_tunnels", exist_ok=True)
@@ -89,6 +94,7 @@ for id, node in gen_conf["node_list"].items():
                 "id": id,
                 "ifname": get_iface_full(node["name"],af),
                 "endpoint": node["endpoints"][af],
+                "endpoint_ip": "$ip_" + get_bash_var_name(node["name"] + af),
                 "params": node["param"][tuntype] if tuntype in node["param"] else None
             }
             side_b = {
@@ -96,6 +102,7 @@ for id, node in gen_conf["node_list"].items():
                 "id": id2,
                 "ifname": get_iface_full(node2["name"],af),
                 "endpoint": node2["endpoints"][af],
+                "endpoint_ip": "$ip_" + get_bash_var_name(node2["name"] + af),
                 "params": node2["param"][tuntype] if tuntype in node2["param"] else None
             }
             
@@ -108,9 +115,12 @@ for id, node in gen_conf["node_list"].items():
                 else:
                     bconf, aconf = tunnels[tuntype](side_b,side_a)
                 def postprocess(conf,side,idd,nod,side2):
+                    conf["up"] = f'{get_bash_var_name(side2["endpoint_ip"][1:])}=$(resolveip {side2["endpoint"]})\n' + conf["up"] if side2["endpoint"] != "NAT" else conf["up"]
                     conf["up"] += "\n" + setiptemplate.render(ifname=side2["ifname"],MTU=nod["MTU"],ipv4=get_v4(idd,net4),ipv6=get_v6(idd,net6),ipv6ll=get_v6ll(idd,net6ll))
                     conf["up"] = jinja2.Template(conf["up"]).render(confpath = "igp_tunnels/" + side2["ifname"])
+                    conf["up"] = "\n".join(filter(None,conf["up"].split("\n"))) + "\n"
                     conf["down"] = jinja2.Template(conf["down"]).render(confpath = "igp_tunnels/" + side2["ifname"])
+                    
                     for ck,cv in conf["confs"].items():
                         conf["confs"][ck] = jinja2.Template(cv).render(confpath = "igp_tunnels/" + side2["ifname"])
                 postprocess(aconf,side_a,id,node,side_b)
