@@ -6,7 +6,7 @@ defaults:
   MTU: 1280
   tunnel: 
     -1: wg
-iface_prefix: ibgp-
+iface_prefix: dn42-i-
 network:
   v4: 172.22.77.32/28
   v6: fd28:cb8f:4c92::/48
