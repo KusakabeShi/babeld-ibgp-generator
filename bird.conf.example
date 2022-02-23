@@ -1,0 +1,209 @@
+################################################
+#               Variable header                #
+################################################
+define MY_COMMUNITY =     ${DN42_COMM};
+define OWNAS =            ${DN42_E_AS};
+define OWNIP =            ${DN42_IPV4};
+define OWNIPv6 =          ${DN42_IPV6};
+define OWNNET =           ${DN42_IPV4_NET_BOARDCAST};
+define OWNNETv6 =         ${DN42_IPV6_NET_BOARDCAST};
+define OWNNET_ANYCAST =   ${DN42_IPV4_NET_ANYCAST};
+define OWNNETv6_ANYCAST = ${DN42_IPV6_NET_ANYCAST};
+
+define OWNNETSET =       [${DN42_IPV4_NET_OWN}+];
+define OWNNETSETv6 =     [${DN42_IPV6_NET_OWN}+];
+define DN42_REGION =     ${DN42_REGION};
+
+################################################
+#                 Header end                   #
+################################################
+
+router id OWNIP;
+
+protocol device {
+    scan time 10;
+}
+
+filter add_no_export {
+    bgp_community.add((65535, 65281)); # No-export
+    accept;
+};
+
+
+protocol direct {
+  ipv4 {
+    import filter add_no_export;
+  };
+  ipv6 {
+    import filter add_no_export;
+  };
+  interface "dn42-i*";
+};
+
+/*
+ *  Utility functions
+ */
+
+function is_self_net() {
+  return net ~ OWNNETSET;
+}
+
+function is_self_net_v6() {
+  return net ~ OWNNETSETv6;
+}
+
+function is_valid_network() {
+  if (MY_COMMUNITY, 11111) ~ bgp_community then return false;
+  bgp_community.delete([(MY_COMMUNITY, *)]);  # Delete all my communities while in/export
+  return net ~ [
+    172.20.0.0/14{21,29}, # dn42
+    172.20.0.0/24{28,32}, # dn42 Anycast
+    172.21.0.0/24{28,32}, # dn42 Anycast
+    172.22.0.0/24{28,32}, # dn42 Anycast
+    172.23.0.0/24{28,32}, # dn42 Anycast
+    172.31.0.0/16+,       # ChaosVPN
+    10.100.0.0/14+,       # ChaosVPN
+    10.127.0.0/16{16,32}, # neonetwork
+    10.0.0.0/8{15,24}     # Freifunk.net
+  ];
+}
+
+function is_valid_network_v6() {
+  if (MY_COMMUNITY, 11111) ~ bgp_community then return false;
+  bgp_community.delete([(MY_COMMUNITY, *)]);  # Delete all my communities while in/export
+  return net ~ [
+    fd00::/8{44,64} # ULA address space as per RFC 4193
+  ];
+}
+
+roa4 table dn42_roa;
+roa6 table dn42_roa_v6;
+
+protocol static {
+    roa4 { table dn42_roa; };
+    include "/etc/bird/roa_dn42.conf";
+};
+
+protocol static {
+    roa6 { table dn42_roa_v6; };
+    include "/etc/bird/roa_dn42_v6.conf";
+};
+
+filter babeld {
+    igp_metric = krt_metric;
+    bgp_community.add((65535, 65281));   # No-export
+    if ( krt_source = 42 ) then accept; # Checkout /etc/iproute2/rt_protos , babel is 42
+    reject;
+}
+
+
+protocol kernel {
+    scan time 20;
+    learn on;
+    ipv4 {
+        import filter babeld;
+        export filter {
+            krt_prefsrc = OWNIP;
+            if source = RTS_STATIC then reject;
+            if is_self_net() then reject;
+            accept;
+        };
+    };
+}
+
+protocol kernel {
+    scan time 20;
+    learn on;
+    ipv6 {
+        import filter babeld;
+        export filter {
+            krt_prefsrc = OWNIPv6;
+            if source = RTS_STATIC then reject;
+            if is_self_net_v6() then reject;
+            accept;
+        };
+    };
+};
+
+protocol static {
+    route OWNNET reject   { bgp_community.add( (64511, DN42_REGION)); };
+
+    ipv4 {
+        import all;
+        export none;
+    };
+}
+
+protocol static {
+    route OWNNETv6 reject   { bgp_community.add( (64511, DN42_REGION)); };
+
+    ipv6 {
+        import all;
+        export none;
+    };
+}
+
+template bgp dnpeers {
+    local as OWNAS;
+    path metric 1;
+    interpret communities on;
+
+    ipv4 {
+        extended next hop on;
+        import filter {
+          if is_valid_network() && !is_self_net() then {
+            if (roa_check(dn42_roa, net, bgp_path.last) != ROA_VALID) then {
+              print "[dn42] ROA check failed from ",bgp_path.first , " ifname:", ifname ," for ", net, " ASN ", bgp_path.last;
+              reject;
+            } else accept;
+          } else reject;
+        };
+
+        export filter { if is_valid_network() && source ~ [RTS_STATIC, RTS_BGP] then accept; else reject; };
+        import limit 1000 action block;
+    };
+
+    ipv6 {
+        import filter {
+          if is_valid_network_v6() && !is_self_net_v6() then {
+            if (roa_check(dn42_roa_v6, net, bgp_path.last) != ROA_VALID) then {
+              print "[dn42] ROA check failed from ",bgp_path.first , " ifname:", ifname ," for ", net, " ASN ", bgp_path.last;
+              reject;
+            } else accept;
+          } else reject;
+        };
+        export filter { if is_valid_network_v6() && source ~ [RTS_STATIC, RTS_BGP] then accept; else reject; };
+        import limit 1000 action block;
+    };
+};
+
+filter no_export {
+    if (65535, 65281) ~ bgp_community then reject;
+    accept;
+};
+
+template bgp ibgps {
+  local as OWNAS;
+  neighbor as OWNAS;
+  path metric on;
+  med metric on;
+  interpret communities on;
+  multihop;
+  enable extended messages on;
+  ipv4 {
+    next hop self yes;
+    gateway recursive;
+    import all;
+    export filter no_export;
+  };
+  ipv6 {
+    next hop self yes;
+    gateway recursive;
+    import all;
+    export filter no_export;
+  };
+};
+
+
+include "/etc/bird/ibgp.conf";
+include "/etc/bird/peers/*.conf";

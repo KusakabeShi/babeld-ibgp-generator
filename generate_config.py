@@ -72,7 +72,7 @@ for id, node in gen_conf["node_list"].items():
         if id == id2:
             continue
         ibgptemplate = jinja2.Template(open('bird_ibgp.conf').read())
-        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = gen_conf["iface_prefix"] + node2["name"],ip=get_v6(id2,net6))
+        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6))
 
         for af, end in node["endpoints"].items():
             if af not in node2["endpoints"]: # process only if both side has same af
