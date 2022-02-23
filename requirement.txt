@@ -1,4 +1,4 @@
 pyyaml
 jinja2
-nacl
+pynacl
 ruamel.yaml
