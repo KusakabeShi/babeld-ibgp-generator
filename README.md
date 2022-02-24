@@ -55,8 +55,11 @@ endpoint裡面有 `-4` 和 `-6` ，可以自訂義增加別的，或是只使用
 見 Output章節
 
 # Output
-生成的結果會放在output資料夾，已name區分每個節點的設定檔。裡面有3個重要的檔案  
+生成的結果會放在output資料夾，用name區分每個節點的設定檔。  
+![image](https://user-images.githubusercontent.com/73118488/155538861-1333f46b-1422-437f-9bd8-2170e8bfe839.png)
+用github/gitee或是什麼方法同步到自己的節點上就可以了
 
+裡面有3個重要的檔案 
 #### up.sh
 裡面是建立tunnel的指令。請自行加入開機自啟動  
 ![image](https://user-images.githubusercontent.com/73118488/155537463-eb83eaf7-a9f5-4392-a31f-efbd43a014ec.png)  
