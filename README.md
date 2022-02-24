@@ -103,7 +103,9 @@ get_gre / get_wg_udp2raw / get_wg / get_openvpn 四個function會回傳具體的
 ## Dependance
 ```
 cd ~
-apt install -y git babeld wireguard-tools python3-pip net-tools libc-bin gawk
+apt install -y git babeld wireguard-tools python3-pip net-tools libc-bin gawk ntp
+systemctl enable ntp
+systemctl start ntp
 pip3 install -r requirement.txt
 wget https://github.com/wangyu-/udp2raw/releases/download/20200818.0/udp2raw_binaries.tar.gz
 tar -xvzf udp2raw_binaries.tar.gz -C udp2raw
