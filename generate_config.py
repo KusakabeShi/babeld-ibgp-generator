@@ -45,7 +45,7 @@ net4 = IPv4Network(gen_conf["network"]["v4"])
 net6 = IPv6Network(gen_conf["network"]["v6"])
 net6ll = IPv6Address(gen_conf["network"]["v6ll"])
 
-result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":"","ups":{},"downs":{}} for n in gen_conf["node_list"]}
+result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":"","ups":{},"updates":{},"downs":{}} for n in gen_conf["node_list"]}
 
 def get_iface_full(name,af):
     n = gen_conf["iface_prefix"] + name + af
@@ -119,6 +119,11 @@ for id, node in gen_conf["node_list"].items():
                     conf["up"] += "\n" + setiptemplate.render(ifname=side2["ifname"],MTU=nod["MTU"],ipv4=get_v4(idd,net4),ipv6=get_v6(idd,net6),ipv6ll=get_v6ll(idd,net6ll))
                     conf["up"] = jinja2.Template(conf["up"]).render(confpath = "igp_tunnels/" + side2["ifname"])
                     conf["up"] = "\n".join(filter(None,conf["up"].split("\n"))) + "\n"
+                    if side2["DDNS"] == True:
+                        conf["update"] = f'{get_bash_var_name(side2["endpoint_ip"][1:])}=$(resolveip {side2["endpoint"]})\n' + conf["update"] if side2["endpoint"] != "NAT" else conf["update"]
+                        conf["update"] = "\n".join(filter(None,conf["update"].split("\n"))) + "\n"
+                    else:
+                        conf["update"] = ""
                     conf["down"] = jinja2.Template(conf["down"]).render(confpath = "igp_tunnels/" + side2["ifname"])
                     
                     for ck,cv in conf["confs"].items():
@@ -134,6 +139,8 @@ for id, node in gen_conf["node_list"].items():
                 result[gen_conf["node_list"][id2]["name"]]["igp_tunnels"][side_a["ifname"]] = bconf["confs"]
             result[gen_conf["node_list"][id ]["name"]]["ups"][aconf["up"]] = ""
             result[gen_conf["node_list"][id2]["name"]]["ups"][bconf["up"]] = ""
+            result[gen_conf["node_list"][id ]["name"]]["updates"][aconf["update"]] = ""
+            result[gen_conf["node_list"][id2]["name"]]["updates"][bconf["update"]] = ""
             result[gen_conf["node_list"][id ]["name"]]["downs"][aconf["down"]] = ""
             result[gen_conf["node_list"][id2]["name"]]["downs"][bconf["down"]] = ""
 
@@ -154,8 +161,11 @@ for s,sps in result.items():
     open(gen_conf["output_dir"] + "/" + s + "/babeld.conf" , "w").write(babeldconf)
     open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w").write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/up.sh" , 0o755)
+    open(gen_conf["output_dir"] + "/" + s + "/update.sh" , "w").write( jinja2.Template(open('update.sh').read()).render(ups = list(sps["updates"].keys())))
+    os.chmod(gen_conf["output_dir"] + "/" + s + "/update.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write(sps["bird/ibgp.conf"])
+    
     
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))

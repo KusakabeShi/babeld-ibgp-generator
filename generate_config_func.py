@@ -74,12 +74,14 @@ def allocate_port(id,id2,port_db,port_base):
 def get_wg(server,client):
     conftemplate = Template(open('wg/wg.conf').read(), undefined=DebugUndefined)
     setuptemplate = Template(open('wg/wg.sh').read(), undefined=DebugUndefined)
+    server["port"] = 0
+    client["port"] = 0
     def renderconf(server,client):
         spri,spub = get_keypair(server["id"])
         cpri,cpub = get_keypair(client["id"])
-        if "port" not in server:
+        if "port" not in server or server["port"] == 0:
             server["port"] = allocate_port(server["name"],client["ifname"],port_allocate_db,server["port_base"]) if server["endpoint"] != "NAT" else 0
-        if "port" not in client:
+        if "port" not in client or client["port"] == 0:
             client["port"] = allocate_port(client["name"],server["ifname"],port_allocate_db,client["port_base"]) if client["endpoint"] != "NAT" else 0
         render_params = {
             'wg': {
@@ -96,6 +98,8 @@ def get_wg(server,client):
             "ifname" : param["ifname"]
         }
         return setuptemplate.render(**render_params)
+    spri,spub = get_keypair(server["id"])
+    cpri,cpub = get_keypair(client["id"])
     conf_s = {
         "up": rendersetup(client),
         "down": "ip link del " + client["ifname"],
@@ -106,6 +110,8 @@ def get_wg(server,client):
         "down": "ip link del " + server["ifname"],
         "confs": {".conf": renderconf(client,server) }
     }
+    conf_s["update"] = f'wg set { client["ifname"] } peer "{ cpub }" endpoint "{ client["endpoint_ip"] + ":" + str(client["port"]) }"' if client["endpoint"] != "NAT" else ""
+    conf_c["update"] = f'wg set { server["ifname"] } peer "{ spub }" endpoint "{ server["endpoint_ip"] + ":" + str(server["port"]) }"'
     return conf_s , conf_c
 
 def get_wg_udp2raw(server,client):
@@ -129,16 +135,20 @@ def get_wg_udp2raw(server,client):
     conf_c["up"] += '\necho $! > {{ confpath }}.pid'
     conf_s["down"] += '\nkill $(cat {{ confpath }}.pid)'
     conf_c["down"] += '\nkill $(cat {{ confpath }}.pid)'
+    conf_s["update"] =  ""
+    conf_c["update"] =  "# Not support yet"
     return conf_s,conf_c
 
 def get_gre(server,client):
     conf_s = {
         "up": f'ip tunnel add {client["ifname"]} mode gre remote { client["endpoint_ip"] } ttl 255',
+        "update": "",
         "down": "ip link del " + client["ifname"],
         "confs": {}
     }
     conf_c = {
         "up": f'ip tunnel add {server["ifname"]} mode gre remote { server["endpoint_ip"] } ttl 255',
+        "update": "",
         "down": "ip link del " + server["ifname"],
         "confs": {}
     }
@@ -153,6 +163,7 @@ def get_openvpn(server,client):
     ovpncfg = get_openvpn_config(server["id"],client["id"])
     conf_s = {
         "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
+        "update": "",
         "down": 'kill $(cat {{ confpath }}.pid)',
         "confs": { ".ovpn" : Template(open('ovpn/server.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
                   "ca.crt": ovpncfg["ca.crt"],
@@ -163,6 +174,7 @@ def get_openvpn(server,client):
     }
     conf_c = {
         "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
+        "update": "",
         "down": 'kill $(cat {{ confpath }}.pid)',
         "confs": { ".ovpn" : Template(open('ovpn/client.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
                   "ca.crt": ovpncfg["ca.crt"],

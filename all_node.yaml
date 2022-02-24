@@ -1,5 +1,6 @@
 output_dir: output
 defaults:
+  DDNS: false
   port_base: 18000
   port_base_i: 36000
   server_perf: 100
@@ -8,12 +9,13 @@ defaults:
     -1: wg
 iface_prefix: dn42-i-
 network:
-  v4: 172.22.77.32/28
-  v6: fd28:cb8f:4c92::/48
+  v4: 192.168.42.0/28
+  v6: fd07:d159:fc38::/48
   v6ll: "fe80::1817:0"
 node_list:
   1:
     name: tw
+    DDNS: true
     server_perf: 50
     endpoints:
       '-4': 4.tw.kskb.eu.org
@@ -27,6 +29,7 @@ node_list:
       12: openvpn
   8:
     name: usfmt
+    DDNS: true
     endpoints:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
