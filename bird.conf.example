@@ -7,8 +7,6 @@ define OWNIP =            ${DN42_IPV4};
 define OWNIPv6 =          ${DN42_IPV6};
 define OWNNET =           ${DN42_IPV4_NET_BOARDCAST};
 define OWNNETv6 =         ${DN42_IPV6_NET_BOARDCAST};
-define OWNNET_ANYCAST =   ${DN42_IPV4_NET_ANYCAST};
-define OWNNETv6_ANYCAST = ${DN42_IPV6_NET_ANYCAST};
 
 define OWNNETSET =       [${DN42_IPV4_NET_OWN}+];
 define OWNNETSETv6 =     [${DN42_IPV6_NET_OWN}+];
