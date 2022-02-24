@@ -54,8 +54,8 @@ endpoint裡面有 `-4` 和 `-6` ，可以自訂義增加別的，或是只使用
 ### DDNS
 見 Output章節
 
-### Output
-生成的結果會放在output資料夾，已name區分每個節點的設定檔。裡面有3個重要的檔案
+# Output
+生成的結果會放在output資料夾，已name區分每個節點的設定檔。裡面有3個重要的檔案  
 
 #### up.sh
 裡面是建立tunnel的指令。請自行加入開機自啟動  
@@ -63,21 +63,21 @@ endpoint裡面有 `-4` 和 `-6` ，可以自訂義增加別的，或是只使用
 以及igp_tunnels資料夾，包含了建立tunnel所需的設定檔。公鑰/私鑰/預共享金鑰都會自動生成  
 ![image](https://user-images.githubusercontent.com/73118488/155537746-1f8aa0a5-79f3-4962-910c-61bdee0adfeb.png)  
 
-還有最後一行的啟動babeld的指令，執行前請先確認自己的babeld是關閉的
+還有最後一行的啟動babeld的指令，執行前請先確認自己的babeld是關閉的  
 ```
 babeld -D -I /var/run/babeld.pid -S /var/lib/babeld/state -c babeld.conf
 ```
 
-#### down.sh
-第一行關閉babeld，然後刪除自己建立的tunnel
-![image](https://user-images.githubusercontent.com/73118488/155538004-bcd8d43c-bb30-4064-b23e-4d8454475734.png)
-用來一鍵關閉+刪除本腳本建立的tunnel
+#### down.sh  
+第一行關閉babeld，然後刪除自己建立的tunnel  
+![image](https://user-images.githubusercontent.com/73118488/155538004-bcd8d43c-bb30-4064-b23e-4d8454475734.png)  
+用來一鍵關閉+刪除本腳本建立的tunnel  
 
-#### update.sh
+#### update.sh  
 還記得剛剛的 DDNS=True ，我說`見 Output章節`嗎，這個就是更新wg endpoint的腳本。  
 被標記成DDNS=True的節點，會出現在update.sh裡面。  
-內容是重新解析域名，指定到wg接口上。 自己把它放在`crontab`就可以了
-![image](https://user-images.githubusercontent.com/73118488/155538122-064677ed-27f8-42c2-88c2-dabdc272824a.png)
+內容是重新解析域名，指定到wg接口上。 自己把它放在`crontab`就可以了  
+![image](https://user-images.githubusercontent.com/73118488/155538122-064677ed-27f8-42c2-88c2-dabdc272824a.png)  
 
 
 generate_config_func.py 說明
