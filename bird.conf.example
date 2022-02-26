@@ -102,6 +102,7 @@ protocol kernel {
         import filter babeld;
         export filter {
             krt_prefsrc = OWNIP;
+            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
             if source = RTS_STATIC then reject;
             if is_self_net() then reject;
             accept;
@@ -116,6 +117,7 @@ protocol kernel {
         import filter babeld;
         export filter {
             krt_prefsrc = OWNIPv6;
+            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
             if source = RTS_STATIC then reject;
             if is_self_net_v6() then reject;
             accept;
@@ -202,6 +204,6 @@ template bgp ibgps {
   };
 };
 
-
 include "/etc/bird/ibgp.conf";
+include "/etc/bird/edgedevice.conf";
 include "/etc/bird/peers/*.conf";
