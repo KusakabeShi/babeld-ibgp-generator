@@ -204,7 +204,7 @@ def get_v4(id,net):
         raise ValueError(f'{ip} is not in {net}')
 def get_v6(id,net):
     first = net[0]
-    ip = first + id * (2**64)
+    ip = first + id * (2**64) + 1
     if ip in net:
         return ip
     else:

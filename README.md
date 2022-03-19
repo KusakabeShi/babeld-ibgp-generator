@@ -5,6 +5,7 @@ babeld-ibgp-generator
 2. 把 `generate_config_func.py` 複製到 input 資料夾
 3. 修改 `input/all_node.yaml`
 4. 執行 `python3 generate_config.py`
+5. 本專案不會對電腦系統做出任何變更。只是生成一大堆 wireguard 設定檔，自己部屬去對應節點自己執行
 
 all_node.yaml 說明
 -----

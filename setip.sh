@@ -5,5 +5,3 @@ ip link set mtu {{ MTU }} dev {{ ifname }}
 ip addr add {{ ipv4 }}/32 dev {{ ifname }}
 ip addr add {{ ipv6 }}/128 dev {{ ifname }}
 ip addr add {{ ipv6ll }}/64 dev {{ ifname }} scope link
-
-

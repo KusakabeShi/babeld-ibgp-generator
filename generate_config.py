@@ -3,6 +3,7 @@ import yaml
 import os
 import shutil
 import string
+import ipaddress
 
 import ruamel.yaml
 from ruamel.yaml.constructor import SafeConstructor
@@ -45,7 +46,7 @@ net4 = IPv4Network(gen_conf["network"]["v4"])
 net6 = IPv6Network(gen_conf["network"]["v6"])
 net6ll = IPv6Address(gen_conf["network"]["v6ll"])
 
-result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":"","ups":{},"updates":{},"downs":{}} for n in gen_conf["node_list"]}
+result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":"","bird/ibgp.conf.j2":"","ups":{},"updates":{},"downs":{},"self_net":{}} for n in gen_conf["node_list"]}
 
 def get_iface_full(name,af):
     n = gen_conf["iface_prefix"] + name + af
@@ -67,12 +68,17 @@ for id, node in gen_conf["node_list"].items():
     os.makedirs(gen_conf["output_dir"] + "/" + node["name"] + "/igp_tunnels", exist_ok=True)
     os.makedirs(gen_conf["output_dir"] + "/" + node["name"] + "/bird", exist_ok=True)
 
+def get_net(ip,length):
+    return ipaddress.ip_interface(str(ip) + "/" + str(length)).network
+
 for id, node in gen_conf["node_list"].items():
     for id2, node2 in gen_conf["node_list"].items():
         if id == id2:
             continue
         ibgptemplate = jinja2.Template(open('bird_ibgp.conf').read())
-        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6))
+        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6),cost=100)
+        result[node["name"]]["bird/ibgp.conf.j2"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6),cost="{{ " + str(get_v6(id2,net6)).replace(":","_") + ' |default(100) }}')
+
 
         for af, end in node["endpoints"].items():
             if af not in node2["endpoints"]: # process only if both side has same af
@@ -143,6 +149,8 @@ for id, node in gen_conf["node_list"].items():
             result[gen_conf["node_list"][id2]["name"]]["updates"][bconf["update"]] = ""
             result[gen_conf["node_list"][id ]["name"]]["downs"][aconf["down"]] = ""
             result[gen_conf["node_list"][id2]["name"]]["downs"][bconf["down"]] = ""
+            result[gen_conf["node_list"][id2]["name"]]["self_net"] = {"v4": str(get_net(get_v4(id2,net4) , 32)) , "v6": str(get_net(get_v6(id2,net6), 64))}
+            result[gen_conf["node_list"][id2]["name"]]["self_ip"] = {"v4": get_v4(id2,net4) , "v6": get_v6(id2,net6)}
 
         
 for s,sps in result.items():
@@ -150,22 +158,25 @@ for s,sps in result.items():
         for ext, content in confs.items():
             open(gen_conf["output_dir"] + "/" + s + "/igp_tunnels/" + e + ext , "w").write(content)
     render_params = {
-        'allow_ip': {
+        'allow_net': {
             'v4': gen_conf["network"]["v4"], 
             'v6': gen_conf["network"]["v6"], 
         },
+        'self_net': sps["self_net"],
         'interfaces': list(sps["igp_tunnels"].keys())
     }
     babeldtemplate = jinja2.Template(open('babeld.conf').read())
     babeldconf = babeldtemplate.render(**render_params)
     open(gen_conf["output_dir"] + "/" + s + "/babeld.conf" , "w").write(babeldconf)
-    open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w").write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].keys())))
+    open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w").write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].keys()), self_ip = sps["self_ip"]))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/up.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/update.sh" , "w").write( jinja2.Template(open('update.sh').read()).render(ups = list(sps["updates"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write(sps["bird/ibgp.conf"])
-    
+    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf.j2" , "w").write(sps["bird/ibgp.conf.j2"])
+    open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w").write(open("update_cost.py").read())
+    os.chmod(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , 0o755)
     
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))
