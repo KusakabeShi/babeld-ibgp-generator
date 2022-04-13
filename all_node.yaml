@@ -9,7 +9,7 @@ defaults:
     -1: wg
 iface_prefix: dn42-i-
 network:
-  v4: 192.168.42.0/28
+  v4: 192.168.42.0/27
   v6: fd07:d159:fc38::/48
   v6ll: "fe80::1817:0"
 node_list:

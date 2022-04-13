@@ -76,9 +76,7 @@ for id, node in gen_conf["node_list"].items():
         if id == id2:
             continue
         ibgptemplate = jinja2.Template(open('bird_ibgp.conf').read())
-        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6),cost=100)
-        result[node["name"]]["bird/ibgp.conf.j2"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6),cost="{{ " + str(get_v6(id2,net6)).replace(":","_") + ' |default(100) }}')
-
+        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6))
 
         for af, end in node["endpoints"].items():
             if af not in node2["endpoints"]: # process only if both side has same af
@@ -175,8 +173,6 @@ for s,sps in result.items():
     open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write(sps["bird/ibgp.conf"])
-    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf.j2" , "w").write(sps["bird/ibgp.conf.j2"])
-    open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w").write(open("update_cost.py").read())
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , 0o755)
     
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))
