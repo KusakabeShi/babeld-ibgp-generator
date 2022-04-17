@@ -46,7 +46,7 @@ net4 = IPv4Network(gen_conf["network"]["v4"])
 net6 = IPv6Network(gen_conf["network"]["v6"])
 net6ll = IPv6Address(gen_conf["network"]["v6ll"])
 
-result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":"","bird/ibgp.conf.j2":"","ups":{},"updates":{},"downs":{},"self_net":{}} for n in gen_conf["node_list"]}
+result = {gen_conf["node_list"][n]["name"]:{"igp_tunnels":{},"bird/ibgp.conf":[],"bird/ibgp.conf.j2":"","ups":{},"updates":{},"downs":{},"self_net":{}} for n in gen_conf["node_list"]}
 
 def get_iface_full(name,af):
     n = gen_conf["iface_prefix"] + name + af
@@ -54,10 +54,11 @@ def get_iface_full(name,af):
         raise ValueError(f"The interface name: {n} must be less than 16 (IFNAMSIZ) bytes.")
     return n
 
-def get_tun(node, id2):
-    if id2 not in node["tunnel"]:
-        return node["tunnel"][-1] , 1
-    return node["tunnel"][id2] , 0
+def get_tun(af,node, id2):
+    node_tun_info = {**gen_conf["defaults"]["tunnel"][af], **node["tunnel"][af]}
+    if id2 not in node_tun_info:
+        return node_tun_info[-1] , 1
+    return node_tun_info[id2] , 0
 
 def get_bash_var_name(strin):
     allowed = set( string.ascii_letters + string.digits + "_" )
@@ -75,22 +76,21 @@ for id, node in gen_conf["node_list"].items():
     for id2, node2 in gen_conf["node_list"].items():
         if id == id2:
             continue
-        ibgptemplate = jinja2.Template(open('bird_ibgp.conf').read())
-        result[node["name"]]["bird/ibgp.conf"] += ibgptemplate.render(name = get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]),ip=get_v6(id2,net6))
+        result[node["name"]]["bird/ibgp.conf"] += [{ "name": get_bash_var_name(gen_conf["iface_prefix"] + node2["name"]) ,"ip":get_v6(id2,net6) }]
 
         for af, end in node["endpoints"].items():
             if af not in node2["endpoints"]: # process only if both side has same af
                 continue
             if node["endpoints"][af] == "NAT" and node2["endpoints"][af] == "NAT": # skip if both side are NATed
                 continue
-            tuntype1, wildcard1 = get_tun(node,id2)
-            tuntype2, wildcard2 = get_tun(node2,id)
+            tuntype1, wildcard1 = get_tun(af,node,id2)
+            tuntype2, wildcard2 = get_tun(af,node2,id)
             if (wildcard1,tunnelist.index(tuntype1)) > (wildcard2,tunnelist.index(tuntype2)):
                 tuntype = tuntype2
             else:
                 tuntype = tuntype1
             if tuntype1 != tuntype2:
-                print("WARN: Tunnel type not match: {s}->{e}:{t1} , {e}->{s}:{t2}, selecting {tun}".format(s=id,e=id2,t1=tuntype1,t2=tuntype2,tun=tuntype))
+                print("WARN: {af}: Tunnel type not match: {s}->{e}:{t1} , {e}->{s}:{t2}, selecting {tun}".format(af=af,s=id,e=id2,t1=tuntype1,t2=tuntype2,tun=tuntype))
             if tuntype == None:
                 continue
             side_a = {
@@ -172,7 +172,10 @@ for s,sps in result.items():
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update.sh" , 0o755)
     open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].keys())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
-    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write(sps["bird/ibgp.conf"])
+    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write( jinja2.Template(open('bird_ibgp.conf').read()).render( interfaces = sps["bird/ibgp.conf"] )  )
+    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.conf.j2" , "w").write(open("bird_igp_metric.conf").read())
+    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.conf" , "w").write(jinja2.Template(open('bird_igp_metric.conf').read()).render( neighbors = []) )
+    open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w").write(open("update_cost.py").read())
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , 0o755)
     
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))

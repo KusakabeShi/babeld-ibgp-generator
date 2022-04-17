@@ -82,7 +82,7 @@ def get_wg(server,client):
         if "port" not in server or server["port"] == 0:
             server["port"] = allocate_port(server["name"],client["ifname"],port_allocate_db,server["port_base"]) if server["endpoint"] != "NAT" else 0
         if "port" not in client or client["port"] == 0:
-            client["port"] = allocate_port(client["name"],server["ifname"],port_allocate_db,client["port_base"]) if client["endpoint"] != "NAT" else 0
+            client["port"] = allocate_port(client["name"],server["ifname"],port_allocate_db,client["port_base_i"]) if client["endpoint"] != "NAT" else 0
         render_params = {
             'wg': {
                 'pri': spri, 

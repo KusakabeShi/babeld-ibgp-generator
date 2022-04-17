@@ -21,7 +21,7 @@ resolveip()
     return 127
   )
 }
-
+set -x
 ip route add {{ self_ip.v4 }}/32 dev lo proto 114 table 114 scope link
 ip route add {{ self_ip.v6 }}/128 dev lo proto 114 table 114 scope link
 
@@ -30,6 +30,6 @@ ip route add {{ self_ip.v6 }}/128 dev lo proto 114 table 114 scope link
 {% endfor %}
 mkdir -p /var/run/babeld
 rm /var/run/babeld/rw.sock || true
-rm /var/run/babeld/rw.sock || true
+rm /var/run/babeld/ro.sock || true
 babeld -D -I /var/run/babeld.pid -S /var/lib/babeld/state -c babeld.conf
 

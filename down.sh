@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 kill $(cat /var/run/babeld.pid)
 
 
