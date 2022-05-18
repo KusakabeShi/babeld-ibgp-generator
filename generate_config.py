@@ -177,5 +177,7 @@ for s,sps in result.items():
     open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.conf" , "w").write(jinja2.Template(open('bird_igp_metric.conf').read()).render( neighbors = []) )
     open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w").write(open("update_cost.py").read())
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , 0o755)
-    
+
+open(gen_conf["output_dir"] + "/babelweb2.sh" , "w").write(jinja2.Template(open('babeldweb2.sh').read()).render( result = result.values() , babeldweb = gen_conf["babeldweb"]) )
+os.chmod(gen_conf["output_dir"] + "/babelweb2.sh" , 0o755)
 open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))

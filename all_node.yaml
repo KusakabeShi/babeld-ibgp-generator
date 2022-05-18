@@ -1,4 +1,7 @@
 output_dir: output
+babeldweb:
+  http: "127.0.0.1:7641"
+  babeld: 7642
 defaults:
   DDNS: false
   port_base: 18000
@@ -19,46 +22,33 @@ node_list:
   1:
     name: tw
     DDNS: true
-    server_perf: 50
+    server_perf: 80
     endpoints:
       '-4': 4.tw.kskb.eu.org
       '-6': 6.tw.kskb.eu.org
   4:
-    name: jptyo
+    name: jp
     endpoints:
       '-4': 4.jp.kskb.eu.org
       '-6': 6.jp.kskb.eu.org
-    tunnel:
-      '-4':
-        8: gre
-      '-6':
-        8: gre6
+  5:
+    name: hk
+    endpoints:
+      '-4': 4.hk.kskb.eu.org
+      '-6': 6.hk.kskb.eu.org
   8:
     name: usfmt
-    DDNS: true
     endpoints:
       '-4': 4.us.kskb.eu.org
       '-6': 6.us.kskb.eu.org
-    tunnel:
-      '-4':
-        4: gre
-      '-6':
-        4: gre6
   10:
     name: de
     endpoints:
       '-4': NAT
-      '-6': NAT
-    tunnel:
-      '-4':
-         12: null
+      '-6': 6.de.kskb.eu.org
   12:
-    name: nj
-    port_base: 42150
+    name: cnjs
+    port_base: 42070
     server_perf: 150
     endpoints:
-      '-4': "221.181.185.70"
-    tunnel:
-      '-4':
-        -1: wg_udp2raw
-        10: null
+      '-4': cnjs.kskb.eu.org

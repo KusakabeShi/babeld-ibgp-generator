@@ -7,11 +7,17 @@ define OWNIP =            ${DN42_IPV4};
 define OWNIPv6 =          ${DN42_IPV6};
 define OWNNET =           ${DN42_IPV4_NET_BOARDCAST};
 define OWNNETv6 =         ${DN42_IPV6_NET_BOARDCAST};
+define OWNNET_ANYCAST =   ${DN42_IPV4_NET_ANYCAST};
+define OWNNETv6_ANYCAST = ${DN42_IPV6_NET_ANYCAST};
 
 define OWNNETSET =       [${DN42_IPV4_NET_OWN}+];
 define OWNNETSETv6 =     [${DN42_IPV6_NET_OWN}+];
 define DN42_REGION =     ${DN42_REGION};
 
+
+define OWNPAS =            138517;
+define OWNPIPv6 =          ${PUB_IPV6};
+define OWNPNETv6 =         ${PUB_IPV6_NET_BOARDCAST};
 ################################################
 #                 Header end                   #
 ################################################
@@ -53,6 +59,9 @@ function is_self_net_v6() {
 function is_valid_network() {
   if (MY_COMMUNITY, 11111) ~ bgp_community then return false;
   bgp_community.delete([(MY_COMMUNITY, *)]);  # Delete all my communities while in/export
+  if ((64511, DN42_REGION)  ~ bgp_community && source = RTS_BGP) then {
+      bgp_local_pref = bgp_local_pref + 10;
+  }
   return net ~ [
     172.20.0.0/14{21,29}, # dn42
     172.20.0.0/24{28,32}, # dn42 Anycast
@@ -69,9 +78,36 @@ function is_valid_network() {
 function is_valid_network_v6() {
   if (MY_COMMUNITY, 11111) ~ bgp_community then return false;
   bgp_community.delete([(MY_COMMUNITY, *)]);  # Delete all my communities while in/export
+  if ((64511, DN42_REGION)  ~ bgp_community && source = RTS_BGP) then {
+      bgp_local_pref = bgp_local_pref + 10;
+  }
   return net ~ [
     fd00::/8{44,64} # ULA address space as per RFC 4193
   ];
+}
+
+function is_dn42() {
+    case net.type {
+        NET_IP4: return net ~ [
+                    172.20.0.0/14+, # dn42
+                    172.31.0.0/16+, # ChaosVPN
+                    10.0.0.0/8+
+                 ];
+        NET_IP6: return net ~ [
+                   fd00::/8+ # ULA address space as per RFC 4193
+                 ];
+    }
+    return false;
+}
+
+function is_global() {
+    case net.type {
+        NET_IP4: return false;
+        NET_IP6: return net ~ [
+                   2000::/3+ # RFC 3587
+                 ];
+    }
+    return false;
 }
 
 roa4 table dn42_roa;
@@ -87,19 +123,11 @@ protocol static {
     include "/etc/bird/roa_dn42_v6.conf";
 };
 
-filter babeld {
-    igp_metric = krt_metric;
-    bgp_community.add((65535, 65281));   # No-export
-    if ( krt_source = 42 ) then accept; # Checkout /etc/iproute2/rt_protos , babel is 42
-    reject;
-}
-
-
 protocol kernel {
-    scan time 20;
-    learn on;
+    #scan time 20;
     ipv4 {
-        import filter babeld;
+
+        import none;
         export filter {
             krt_prefsrc = OWNIP;
             if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
@@ -111,12 +139,17 @@ protocol kernel {
 }
 
 protocol kernel {
-    scan time 20;
-    learn on;
+    #scan time 20;
     ipv6 {
-        import filter babeld;
+        import none;
         export filter {
-            krt_prefsrc = OWNIPv6;
+            if is_dn42() then {
+                krt_prefsrc = OWNIPv6;
+            } else if is_global() then {
+                krt_prefsrc = OWNPIPv6;
+            } else {
+                reject;
+            }
             if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
             if source = RTS_STATIC then reject;
             if is_self_net_v6() then reject;
@@ -136,7 +169,7 @@ protocol static {
 
 protocol static {
     route OWNNETv6 reject   { bgp_community.add( (64511, DN42_REGION)); };
-
+    route OWNPNETv6 reject;
     ipv6 {
         import all;
         export none;
@@ -150,6 +183,7 @@ template bgp dnpeers {
 
     ipv4 {
         extended next hop on;
+        import keep filtered on;
         import filter {
           if is_valid_network() && !is_self_net() then {
             if (roa_check(dn42_roa, net, bgp_path.last) != ROA_VALID) then {
@@ -164,6 +198,7 @@ template bgp dnpeers {
     };
 
     ipv6 {
+        import keep filtered on;
         import filter {
           if is_valid_network_v6() && !is_self_net_v6() then {
             if (roa_check(dn42_roa_v6, net, bgp_path.last) != ROA_VALID) then {
@@ -177,9 +212,53 @@ template bgp dnpeers {
     };
 };
 
-filter no_export {
+template bgp pubpeers {
+    local as OWNPAS;
+    path metric 1;
+    interpret communities on;
+    allow local as 1;
+    ipv4 {
+        extended next hop on;
+        import filter {
+          if is_global() then {
+            accept;
+          } else reject;
+        };
+
+        export none;
+        import limit 10000000 action block;
+    };
+
+    ipv6 {
+        import filter {
+          if is_global() then {
+            accept;
+          } else reject;
+        };
+        export filter { if is_global() && source ~ [RTS_STATIC] then {
+                accept;
+            }
+            else {
+                reject;
+            }
+        };
+        import limit 10000000 action block;
+    };
+};
+
+filter ibgp_filter {
     if (65535, 65281) ~ bgp_community then reject;
-    accept;
+    case net.type {
+        NET_IP4: if is_valid_network() || is_self_net() then {
+          bgp_next_hop = OWNIP;
+          accept;
+        }
+        NET_IP6: if is_valid_network_v6() || is_self_net_v6()then {
+          bgp_next_hop = OWNIPv6;
+          accept;
+        }
+    }
+    reject;
 };
 
 template bgp ibgps {
@@ -191,19 +270,39 @@ template bgp ibgps {
   multihop;
   enable extended messages on;
   ipv4 {
-    next hop self yes;
     gateway recursive;
     import all;
-    export filter no_export;
+    export filter ibgp_filter;
   };
   ipv6 {
-    next hop self yes;
     gateway recursive;
     import all;
-    export filter no_export;
+    export filter ibgp_filter;
   };
 };
 
-include "/etc/bird/ibgp.conf";
+
+template bgp dnnodes {
+  local as OWNAS;
+  path metric on;
+  med metric on;
+  direct;
+  enable extended messages on;
+  ipv4 {
+    next hop self yes;
+    extended next hop on;
+    import all;
+    export all;
+  };
+  ipv6 {
+    next hop self yes;
+    import all;
+    export all;
+  };
+};
+
+include "/etc/bird/babeld/ibgp.conf";
 include "/etc/bird/edgedevice.conf";
+#include "/etc/bird/nodes/*.conf";
 include "/etc/bird/peers/*.conf";
+include "/etc/bird/pubpeers/*.conf";
