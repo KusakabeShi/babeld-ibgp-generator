@@ -7,7 +7,7 @@ defaults:
   port_base: 18000
   port_base_i: 36000
   server_perf: 100
-  MTU: 1280
+  MTU: 1500
   tunnel: 
     '-4':
       -1: wg
@@ -23,32 +23,105 @@ node_list:
     name: tw
     DDNS: true
     server_perf: 80
+    MTU: 1492
     endpoints:
-      '-4': 4.tw.kskb.eu.org
-      '-6': 6.tw.kskb.eu.org
+      '-4': 4.tw.kskb.moe
+      '-6': 6.tw.kskb.moe
   4:
     name: jp
     endpoints:
-      '-4': 4.jp.kskb.eu.org
-      '-6': 6.jp.kskb.eu.org
+      '-4': 4.jp.kskb.moe
+      '-6': 6.jp.kskb.moe
   5:
     name: hk
     endpoints:
-      '-4': 4.hk.kskb.eu.org
-      '-6': 6.hk.kskb.eu.org
+      '-4': 4.hk.kskb.moe
+      '-6': 6.hk.kskb.moe
   8:
     name: usfmt
     endpoints:
-      '-4': 4.us.kskb.eu.org
-      '-6': 6.us.kskb.eu.org
+      '-4': 4.us.kskb.moe
+      '-6': 6.us.kskb.moe
   10:
     name: de
     endpoints:
       '-4': NAT
-      '-6': 6.de.kskb.eu.org
+      '-6': 6.de.kskb.moe
   12:
     name: cnjs
     port_base: 42070
     server_perf: 150
     endpoints:
-      '-4': cnjs.kskb.eu.org
+      '-4': cnjs.kskb.moe
+    tunnel:
+      '-4':
+        -1: wg_high
+  16:
+    name: cnzj
+    DDNS: true
+    port_base: 14870
+    server_perf: 150
+    MTU: 1480
+    endpoints:
+      '-4': 4.cnzj.kskb.moe
+      '-6': 6.cnzj.kskb.moe
+    tunnel:
+      '-4':
+        -1: wg_high
+      '-6':
+        1: null
+  17:
+    name: cnwh
+    DDNS: true
+    port_base: 21201
+    server_perf: 50
+    MTU: 1492
+    endpoints:
+      '-4': 4.cnwh.kskb.moe
+      '-6': 6.cnwh.kskb.moe
+    tunnel:
+      '-4':
+        -1: wg_high
+      '-6': 
+        1: null
+        4: null
+        5: null
+        16: null
+        18: null
+  18:
+    name: cngd
+    MTU: 1420
+    endpoints:
+      '-4': NAT
+      '-6': 6.cngd.kskb.moe
+    tunnel:
+      '-4':
+        -1: wg_high
+  19:
+    name: cncs
+    port_base: 31980
+    endpoints:
+      '-4': 4.cncs.kskb.moe
+    tunnel:
+      '-4':
+        -1: wg_high
+  20:
+    name: usfmt2
+    MTU: 1480
+    endpoints:
+      '-4': 4.yi.us.kskb.moe
+  21:
+    name: de2
+    port_base: 13481
+    endpoints:
+      '-4': hz.moe.de.kskb.moe
+      '-6': 6.moe.de.kskb.moe
+  22:
+    name: cnsc
+    port_base: 11080
+    server_perf: 45
+    endpoints:
+      '-4': 4.cnsc.kskb.moe
+    tunnel:
+      '-4':
+        -1: openvpn

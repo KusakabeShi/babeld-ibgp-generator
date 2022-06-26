@@ -104,7 +104,7 @@ function is_global() {
     case net.type {
         NET_IP4: return false;
         NET_IP6: return net ~ [
-                   2000::/3+ # RFC 3587
+                   2000::/3{8,48} # RFC 3587
                  ];
     }
     return false;
@@ -121,41 +121,6 @@ protocol static {
 protocol static {
     roa6 { table dn42_roa_v6; };
     include "/etc/bird/roa_dn42_v6.conf";
-};
-
-protocol kernel {
-    #scan time 20;
-    ipv4 {
-
-        import none;
-        export filter {
-            krt_prefsrc = OWNIP;
-            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
-            if source = RTS_STATIC then reject;
-            if is_self_net() then reject;
-            accept;
-        };
-    };
-}
-
-protocol kernel {
-    #scan time 20;
-    ipv6 {
-        import none;
-        export filter {
-            if is_dn42() then {
-                krt_prefsrc = OWNIPv6;
-            } else if is_global() then {
-                krt_prefsrc = OWNPIPv6;
-            } else {
-                reject;
-            }
-            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
-            if source = RTS_STATIC then reject;
-            if is_self_net_v6() then reject;
-            accept;
-        };
-    };
 };
 
 protocol static {
@@ -249,11 +214,11 @@ template bgp pubpeers {
 filter ibgp_filter {
     if (65535, 65281) ~ bgp_community then reject;
     case net.type {
-        NET_IP4: if is_valid_network() || is_self_net() then {
+        NET_IP4: if is_dn42() then {
           bgp_next_hop = OWNIP;
           accept;
         }
-        NET_IP6: if is_valid_network_v6() || is_self_net_v6()then {
+        NET_IP6: if is_dn42() then {
           bgp_next_hop = OWNIPv6;
           accept;
         }
@@ -306,3 +271,39 @@ include "/etc/bird/edgedevice.conf";
 #include "/etc/bird/nodes/*.conf";
 include "/etc/bird/peers/*.conf";
 include "/etc/bird/pubpeers/*.conf";
+include "/etc/bird/babeld/ibgp.conf";
+
+protocol kernel {
+    #scan time 20;
+    ipv4 {
+
+        import filter babeld;
+        export filter {
+            krt_prefsrc = OWNIP;
+            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
+            if source = RTS_STATIC then reject;
+            if is_self_net() then reject;
+            accept;
+        };
+    };
+}
+
+protocol kernel {
+    #scan time 20;
+    ipv6 {
+        import filter babeld;
+        export filter {
+            if is_dn42() then {
+                krt_prefsrc = OWNIPv6;
+            } else if is_global() then {
+                krt_prefsrc = OWNPIPv6;
+            } else {
+                reject;
+            }
+            if (MY_COMMUNITY, 11111) ~ bgp_community then accept;
+            if source = RTS_STATIC then reject;
+            if is_self_net_v6() then reject;
+            accept;
+        };
+    };
+};

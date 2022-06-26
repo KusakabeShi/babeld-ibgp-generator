@@ -5,11 +5,18 @@ from base64 import b64encode
 from nacl.public import PrivateKey
 from ipaddress import  IPv4Network , IPv6Network ,IPv4Address, IPv6Address
 from jinja2 import Template, DebugUndefined
+from subprocess import Popen, PIPE
 
 psk_db = {}
 keypair_db = {}
 port_allocate_db = {}
 port_allocate_db_i = {}
+openvpnkey_db = {}
+
+af_info = {
+    "-4":{"MTU":20},
+    "-6":{"MTU":40}
+}
 
 def vars_load(var):
     print("INFO: loading old state")
@@ -17,6 +24,7 @@ def vars_load(var):
     global keypair_db
     global port_allocate_db
     global port_allocate_db_i
+    global openvpnkey_db
     if "psk_db" in var:
         psk_db = var["psk_db"]
     if "keypair_db" in var:
@@ -25,6 +33,8 @@ def vars_load(var):
         port_allocate_db = var["port_allocate_db"]
     if "port_allocate_db_i" in var:
         port_allocate_db_i = var["port_allocate_db_i"]
+    if "openvpnkey_db" in var:
+        openvpnkey_db = var["openvpnkey_db"]
         
 def vars_dump():
     return {
@@ -32,6 +42,7 @@ def vars_dump():
         "keypair_db": keypair_db,
         "port_allocate_db": port_allocate_db,
         "port_allocate_db_i": port_allocate_db_i,
+        "openvpnkey_db": openvpnkey_db,
     }
 
 def keygen():
@@ -102,16 +113,20 @@ def get_wg(server,client):
     cpri,cpub = get_keypair(client["id"])
     conf_s = {
         "up": rendersetup(client),
+        "update": f'',
+        "reconnect": "",
         "down": "ip link del " + client["ifname"],
-        "confs": {".conf": renderconf(server,client) }
+        "confs": {".conf": renderconf(server,client) },
+        "MTU": 40
     }
     conf_c = {
         "up": rendersetup(server),
+        "update": f'wg set { server["ifname"] } peer "{ spub }" endpoint "{ server["endpoint_ip"] + ":" + str(server["port"]) }"',
+        "reconnect": f'update_wg_peer { server["ifname"] } "{ spub }" "{ server["endpoint_ip"] + ":" + str(server["port"]) }" "{{{{ confpath }}}}.conf"',
         "down": "ip link del " + server["ifname"],
-        "confs": {".conf": renderconf(client,server) }
+        "confs": {".conf": renderconf(client,server) },
+        "MTU": 40
     }
-    conf_s["update"] = f'wg set { client["ifname"] } peer "{ cpub }" endpoint "{ client["endpoint_ip"] + ":" + str(client["port"]) }"' if client["endpoint"] != "NAT" else ""
-    conf_c["update"] = f'wg set { server["ifname"] } peer "{ spub }" endpoint "{ server["endpoint_ip"] + ":" + str(server["port"]) }"'
     return conf_s , conf_c
 
 def get_wg_udp2raw(server,client):
@@ -137,20 +152,26 @@ def get_wg_udp2raw(server,client):
     conf_c["down"] += '\nkill $(cat {{ confpath }}.pid)'
     conf_s["update"] =  ""
     conf_c["update"] =  "# Not support yet"
+    conf_s["reconnect"] = ""
+    conf_c["reconnect"] = "# Not support yet"
     return conf_s,conf_c
 
 def get_gre(server,client):
     conf_s = {
         "up": f'ip tunnel add {client["ifname"]} mode gre remote { client["endpoint_ip"] } ttl 255',
         "update": "",
+        "reconnect":"",
         "down": "ip link del " + client["ifname"],
-        "confs": {}
+        "confs": {},
+        "MTU": 4
     }
     conf_c = {
         "up": f'ip tunnel add {server["ifname"]} mode gre remote { server["endpoint_ip"] } ttl 255',
         "update": "",
+        "reconnect":"",
         "down": "ip link del " + server["ifname"],
-        "confs": {}
+        "confs": {},
+        "MTU": 4
     }
     if server["endpoint"] == "NAT":
         raise ValueError(f'Endpoint can\'t be NAT at gre tunnel: { client["id"] } ->  { server["id"] }' )
@@ -161,37 +182,39 @@ def get_gre(server,client):
 def get_openvpn(server,client):
     server["port"] = allocate_port(server["name"],client["ifname"],port_allocate_db,server["port_base"])
     ovpncfg = get_openvpn_config(server["id"],client["id"])
-    conf_s = {
-        "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
+    conf_s = { 
+        "up": f'openvpn --port { server["port"] } --cipher AES-256-CBC --proto tcp-server --dev-type tun --dev { client["ifname"] } --secret $(pwd)/{{{{ confpath }}}}.key --script-security 2 --up $(pwd)/{{{{ setupippath }}}} --writepid $(pwd)/{{{{ confpath }}}}.pid --log /dev/stdout --daemon',
         "update": "",
+        "reconnect":"",
         "down": 'kill $(cat {{ confpath }}.pid)',
-        "confs": { ".ovpn" : Template(open('ovpn/server.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
-                  "ca.crt": ovpncfg["ca.crt"],
-                  ".crt": ovpncfg["server.crt"],
-                  ".key": ovpncfg["server.key"],
-                  ".pem": ovpncfg["df.pem"]
-                 }
+        "confs": { ".key": ovpncfg["static.key"]  },
+        "MTU": 20
     }
     conf_c = {
-        "up": 'nohup openvpn --config {{ confpath }}.ovpn >/dev/null >/dev/null 2>&1 &',
+        "up": f'openvpn --remote { server["endpoint"] } --port { server["port"] } --cipher AES-256-CBC --proto tcp-client --dev-type tun --dev { server["ifname"] } --secret $(pwd)/{{{{ confpath }}}}.key --script-security 2 --up $(pwd)/{{{{ setupippath }}}} --writepid $(pwd)/{{{{ confpath }}}}.pid --log /dev/stdout --daemon',
         "update": "",
+        "reconnect":"",
         "down": 'kill $(cat {{ confpath }}.pid)',
-        "confs": { ".ovpn" : Template(open('ovpn/client.ovpn').read(), undefined=DebugUndefined).render(server=server,client=client),
-                  "ca.crt": ovpncfg["ca.crt"],
-                  ".crt": ovpncfg["client.crt"],
-                  ".key": ovpncfg["client.key"],
-                 }
+        "confs": {  ".key": ovpncfg["static.key"] },
+        "MTU": 20
     }
     return conf_s , conf_c
     
+def get_openvpn_key(id,id2):
+    dictkey = (id,id2)
+    if dictkey in openvpnkey_db:
+        return openvpnkey_db[dictkey]
+    proc = Popen("openvpn --genkey --secret /dev/stdout", shell=True, stdout=PIPE)
+    stdout, stderr = proc.communicate()
+    if stderr != None and len(stderr) > 0:
+        raise Exception(stderr)
+    openvpnkey_db[dictkey] = stdout.decode()
+    return openvpnkey_db[dictkey]
+
 def get_openvpn_config(id,id2):
+    key = get_openvpn_key(id,id2)
     return {
-        "ca.crt" : "aa",
-        "server.crt": "bb",
-        "server.key": "cc",
-        "client.crt": "dd",
-        "client.key": "ee",
-        "df.pem": ""
+        "static.key" : key
     }
     
 
@@ -216,8 +239,9 @@ tunnels = {
     None: None,
     "gre": get_gre,
     "wg_udp2raw":get_wg_udp2raw,
-    "wg":get_wg,
+    "wg_high":get_wg,
     "openvpn": get_openvpn,
+    "wg":get_wg,
     
 }
 

@@ -25,6 +25,8 @@ set -x
 ip route add {{ self_ip.v4 }}/32 dev lo proto 114 table 114 scope link
 ip route add {{ self_ip.v6 }}/128 dev lo proto 114 table 114 scope link
 
+cp bird/igp_metric.zero.conf bird/igp_metric.conf
+
 {% for up in ups -%}
 {{ up }}
 {% endfor %}
