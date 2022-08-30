@@ -181,7 +181,7 @@ for id, node in gen_conf["node_list"].items():
 for s,sps in result.items():
     for e , confs in sps["igp_tunnels"].items():
         for ext, content in confs.items():
-            open(gen_conf["output_dir"] + "/" + s + "/igp_tunnels/" + e + ext , "w").write(content)
+            open(gen_conf["output_dir"] + "/" + s + "/igp_tunnels/" + e + ext , "w", newline='\n').write(content)
             if ext.endswith(".sh"):
                 os.chmod(gen_conf["output_dir"] + "/" + s + "/igp_tunnels/" + e + ext, 0o755)
     render_params = {
@@ -194,19 +194,19 @@ for s,sps in result.items():
     }
     babeldtemplate = jinja2.Template(open('babeld.conf').read())
     babeldconf = babeldtemplate.render(**render_params)
-    open(gen_conf["output_dir"] + "/" + s + "/babeld.conf" , "w").write(babeldconf)
-    open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w").write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].values()), self_ip = sps["self_ip"]))
+    open(gen_conf["output_dir"] + "/" + s + "/babeld.conf" , "w", newline='\n').write(babeldconf)
+    open(gen_conf["output_dir"] + "/" + s + "/up.sh" , "w", newline='\n').write( jinja2.Template(open('up.sh').read()).render(ups = list(sps["ups"].values()), self_ip = sps["self_ip"]))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/up.sh" , 0o755)
-    open(gen_conf["output_dir"] + "/" + s + "/update.sh" , "w").write( jinja2.Template(open('update.sh').read()).render(resolvips = list(filter(None,sps["resolvips"].values())) ,ups = list(filter(None,sps["updates"].values())), reconns = list(filter(lambda x:x["script"] != "",sps["reconnects"].values()))))
+    open(gen_conf["output_dir"] + "/" + s + "/update.sh" , "w", newline='\n').write( jinja2.Template(open('update.sh').read()).render(resolvips = list(filter(None,sps["resolvips"].values())) ,ups = list(filter(None,sps["updates"].values())), reconns = list(filter(lambda x:x["script"] != "",sps["reconnects"].values()))))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update.sh" , 0o755)
-    open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w").write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].values())))
+    open(gen_conf["output_dir"] + "/" + s + "/down.sh" , "w", newline='\n').write( jinja2.Template(open('down.sh').read()).render(downs = list(sps["downs"].values())))
     os.chmod(gen_conf["output_dir"] + "/" + s + "/down.sh" , 0o755)
-    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w").write( jinja2.Template(open('bird_ibgp.conf').read()).render( interfaces = sps["bird/ibgp.conf"] )  )
-    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.conf.j2" , "w").write(open("bird_igp_metric.conf").read())
-    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.zero.conf" , "w").write(jinja2.Template(open('bird_igp_metric.conf').read()).render( neighbors = []) )
-    open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w").write(open("update_cost.py").read())
+    open(gen_conf["output_dir"] + "/" + s + "/bird/ibgp.conf" , "w", newline='\n').write( jinja2.Template(open('bird_ibgp.conf').read()).render( interfaces = sps["bird/ibgp.conf"] )  )
+    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.conf.j2" , "w", newline='\n').write(open("bird_igp_metric.conf").read())
+    open(gen_conf["output_dir"] + "/" + s + "/bird/igp_metric.zero.conf" , "w", newline='\n').write(jinja2.Template(open('bird_igp_metric.conf').read()).render( neighbors = []) )
+    open(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , "w", newline='\n').write(open("update_cost.py").read())
     os.chmod(gen_conf["output_dir"] + "/" + s + "/update_cost.py" , 0o755)
 
-open(gen_conf["output_dir"] + "/babelweb2.sh" , "w").write(jinja2.Template(open('babeldweb2.sh').read()).render( result = result.values() , babeldweb = gen_conf["babeldweb"]) )
+open(gen_conf["output_dir"] + "/babelweb2.sh" , "w", newline='\n').write(jinja2.Template(open('babeldweb2.sh').read()).render( result = result.values() , babeldweb = gen_conf["babeldweb"]) )
 os.chmod(gen_conf["output_dir"] + "/babelweb2.sh" , 0o755)
-open("input/state.yaml","w").write(ruamel.yaml.dump(vars_dump()))
+open("input/state.yaml","w", newline='\n').write(ruamel.yaml.dump(vars_dump()))
