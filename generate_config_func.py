@@ -153,7 +153,9 @@ def get_wg_udp2raw(server,client):
     conf_s["update"] =  ""
     conf_c["update"] =  "# Not support yet"
     conf_s["reconnect"] = ""
-    conf_c["reconnect"] = "# Not support yet"
+    conf_c["reconnect"] = "# Not support yet
+    conf_s["MTU"] = 140
+    conf_c["MTU"] = 140
     return conf_s,conf_c
 
 def get_gre(server,client):

@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import jinja2
 import yaml
 import os
@@ -174,7 +175,9 @@ for id, node in gen_conf["node_list"].items():
             result[gen_conf["node_list"][id2]["name"]]["reconnects"][str(id ).zfill(3) + af] = bconf["reconnect_info"]
             result[gen_conf["node_list"][id ]["name"]]["downs"][str(id2).zfill(3) + af] = aconf["down"]
             result[gen_conf["node_list"][id2]["name"]]["downs"][str(id ).zfill(3) + af] = bconf["down"]
-            result[gen_conf["node_list"][id2]["name"]]["self_net"] = {"v4": str(get_net(get_v4(id2,net4) , 32)) , "v6": str(get_net(get_v6(id2,net6), 64))}
+            result[gen_conf["node_list"][id ]["name"]]["self_net"] = {"v4": str(get_net(get_v4(id,net4) , 32)) , "v6": str(get_net(get_v6(id,net6), 64))}
+            result[gen_conf["node_list"][id ]["name"]]["self_ip"] = {"v4": get_v4(id,net4) , "v6": get_v6(id2,net6)}
+            result[gen_conf["node_list"][id2]["name"]]["self_net"] = {"v4": str(get_net(get_v4(id2,net4) , 32)) , "v6": str(get_net(get_v6(id,net6), 64))}
             result[gen_conf["node_list"][id2]["name"]]["self_ip"] = {"v4": get_v4(id2,net4) , "v6": get_v6(id2,net6)}
 
         
